@@ -1,0 +1,707 @@
+---
+title: "CSSS 563 - HW1"
+author: "Courtney Allen"
+date: "4/10/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(SciViews)
+library(kableExtra)
+```
+
+
+## Question 1
+
+Suppose the instantaneous mortality rate for a population is a constant that does not
+depend on age, equal to 0.02 per year.
+
+
+### Q1.A
+
+**Find analytically and plot the probability density function of age at death for this population.**
+
+
+Probability density function is:
+
+$$
+ f(x) = \lambda e ^{-\lambda x}
+$$
+$$
+\lambda = 0.02
+$$
+$$
+f(x) = 0.02 e ^{-0.02 x}
+$$
+
+The probability distribution of age at death is exponential: 
+
+```{r}
+lambda <- 0.02
+beg_age <- 0
+end_age <- 110
+population_ages <- (tibble(age = seq(beg_age,end_age, 1)))
+
+
+pdf = function(x) lambda*exp(-lambda*x)
+pdf_plot = 
+  population_ages %>% 
+  mutate(PDF = pdf(age)) %>% 
+  ggplot(aes(x=age, y=PDF)) + 
+  geom_line() + 
+  theme_classic() + 
+  labs(
+    title = "Probability Density Function", 
+    x = "Age (years)",
+    y = "Probability"
+    )
+
+pdf_plot
+
+```
+
+
+
+
+### Q1.B
+
+**Find the probability that a member of this population is still alive at age 70.**
+
+The probability that a member of the population is still alive is represented by the Survival Function:
+
+$$
+S(x) = Pr[X>x] = 1-F(x) = e ^{-\lambda x}
+$$
+$$
+S(x) = e ^{-0.02*70}
+$$
+```{r}
+
+survival = function(x) exp(-lambda*x)
+
+sx_70 <- survival(70)
+```
+
+The probablity of a member of the population surviving to age 70 is **`r round(sx_70,2)`**.
+
+### Q1.C
+
+**Find the probability that a member of this population dies before age 6.**
+
+The probability that a member of the population dies by a certain age is represented by the Cumulative Distribution Function:
+
+$$
+ f(x) = 1- e ^{-\lambda x}
+$$
+$$
+ f(x) = 1- e ^{-0.02 * 6}
+$$
+
+```{r}
+
+cdf = function(x) 1 - exp(-lambda*x)
+
+qx_6 <- cdf(6)
+
+```
+
+The probability of a member of the population surviving to age 70 is **`r round(qx_6,2)`**.
+
+
+### Q1.D
+
+**Find the life expectancy at birth for a member of this population.**
+
+Life expectancy can be found by integrating the survival function from 0 to infinity.
+
+$$
+e_0 = E(X) = \int_{0}^{\infty} S(u)du
+$$
+
+```{r}
+  
+
+
+e0 <- 1/0.02
+  
+
+```
+
+The life expectancy at birth is **`r round(e0,2)`**.
+
+### Q1.E
+
+**Find the life expectancy at age 50 for a member of this population.**
+
+Life expectancy at age 50 is: 
+
+$$
+e_0 = E(X) = \int_{50}^{\infty} \frac{S(u)du}{S(50)}
+$$
+
+```{r}
+survival_function <- function(x) {
+  exp(-lambda*x)
+}
+e50_temp <- integrate(survival_function, lower = 50, upper = Inf)
+e50 <- e50_temp$value/survival_function(50)
+
+```
+
+
+The life expectancy at age 50 is **`r round(e50,2)`**.
+
+
+### Q1.F
+
+**Find the median age at death for this population**
+
+```{r}
+
+population_ages <- (tibble(age = seq(1,110, 1)))
+
+med_death <- (ln(2))/lambda
+```
+
+
+The median age at death is `r round(med_death,2)`.
+
+
+## Question 2
+
+**Suppose the instantaneous mortality rate at age x for a cohort is$\mu$(x) = (0.0168x2 -  0.668x + 8)/1000**
+
+**Denote by X the age at death of a person randomly chosen from this cohort (a random variable).**
+
+### Q2.A
+
+**Plot the instantaneous mortality rate for this cohort against age.**
+
+```{r}
+hazard_fun = function(x) (0.0168*x^2 - 0.668*x + 8)/1000
+imr_plot <- population_ages %>%
+  mutate(mortality = hazard_fun(age)) %>%
+  ggplot(aes(x = age, y = mortality)) +
+  geom_line() +
+  theme_bw() +
+  theme(text = element_text(family = "serif")) +
+  labs(
+    title = "Mortality Rate vs Age",
+    x = "Age (years)",
+    y = "Instantaneous Mortality Rate"
+  )
+imr_plot
+
+```
+
+
+
+### Q2.B
+
+**Find analytically and plot the cumulative hazard function of this distribution, (x).**
+
+The cumulative hazard function is $\Lambda(x) = \int_{0}^{x} \mu(u)du$.
+
+
+$$
+\begin{aligned} \Lambda(x) &= \int_{0}^{x} \mu(u) du \\
+&= \int_{0}^{x} \left[(0.0168x^2 − 0.668x + 8)/1000 \right]dx \\ 
+&= \int_{0}^{x} \dfrac{21x^2-835x+10000}{1250000}dx\\
+\end{aligned}
+$$
+
+
+```{r}
+
+cum_hazard_fun <- function(x) (-835*x + 21*x^2 + 10000)/1250000
+
+chf_plot <- ggplot(population_ages, aes(x = age, y = cum_hazard_fun(age))) +
+  geom_line() +
+  theme_classic() +
+  labs(
+    title = "Cumulative Hazard vs Age",
+    x = "Age (years)",
+    y = "Cumulative Hazard"
+  )
+
+chf_plot
+
+
+
+```
+
+### Q2.C
+
+**Find analytically and plot the survival function, S(x).**
+
+The survival function is: 
+
+$$
+S(x) = exp^{-1*cumulativehazard}
+$$
+
+```{r}
+
+survival_fun <- function(x) exp(-1 * cum_hazard_fun(x))
+survival_fun <- function(x) exp(-1 * ((0.0168*x^2 - 0.668*x + 8)/1000))
+surv_plot = 
+  population_ages %>%
+  mutate(survive = survival_fun(age)) %>%
+  ggplot(aes(x=age, y=survive)) + 
+  geom_line() + 
+  theme_classic() + 
+  labs(
+    title = "Survival Function", 
+    x = "Age (years)",
+    y = "Probability of surviving to age X"
+    )
+
+surv_plot
+
+```
+
+### Q2.D
+
+**Find and plot the probability density function of X, f(x).**
+
+```{r}
+
+pdf_fun <- function(x) survival_fun(x) * hazard_fun(x)
+pdfun_plot <-
+  population_ages %>%
+  mutate(pdf = pdf_fun(age)) %>%
+  ggplot(aes(x = age, y = pdf)) +
+  geom_line() +
+  theme_classic() + 
+  labs(
+    title = "Probability density vs Age",
+    x = "Age (years)",
+    y = "Probability density")
+
+pdf_plot
+
+
+```
+
+### Q2.E
+
+**Find the life expectancy at birth of a member of this cohort.**
+
+Life expectancy is: 
+
+$$
+e_0 = E(X) = \int_{0}^{\infty} S(u)du
+$$
+
+
+```{r}
+
+q2_e0 <- integrate(survival_fun, lower = 0, upper = Inf)
+
+```
+
+The life expectancy at birth is **`r round(q2_e0$value,2)`**.
+
+
+### Q2.F
+
+**Find the life expectancy at age 10 of a member of this cohort.**
+
+Life expectancy at age 10 is: 
+
+$$
+e_{10} = E(X) = \int_{10}^{\infty} \frac{S(u)du}{S(10)}
+$$
+
+```{r}
+e10_temp <- integrate(survival_function, lower = 10, upper = Inf)
+e10 <- e10_temp$value/survival_function(10)
+
+```
+
+The life expectancy at birth is **`r round(e10,2)`**.
+
+### Q2.G
+
+**Find 45q15 for this cohort.**
+
+$$
+_{n}q_{x} = \frac{_{n}d_{x}}{l_{x}} = \frac{l_{x}-l_{x+n}}{l_{x}} = \frac{S_{(x)}-S_{(x+n)}}{S_{(x)}}
+$$
+
+```{r}
+
+nqx <- function(x, n) (survival_fun(x) - survival_fun(x + n)) / survival_fun(x) 
+q45_15 <- round(nqx(15, 45), 3)
+
+```
+
+The probability of dying between ages 15 and 60 is **`r round(q45_15,2)`**
+
+## Question 3
+
+**From the UN's 2019 World Population Prospects extract and show:**
+
+```{r}
+library(wpp2019)
+library(wppExplorer)
+
+```
+
+### Q3.A
+
+**estimates of the male population of Peru in each of the age groups 70-74, 75-79, 80-84, 85-89, 90-94, 95+ in 2015 and 2020**
+
+```{r}
+
+# download estimates of males
+data("popM")
+
+# filter for Peru, ages 70+
+df_pe <- popM %>%
+  filter(country_code == 604, 
+         age == c("70-74", "75-79", "80-84", "85-89", "90-94", "95-99", "100+")) %>%
+    select("age", "2015", "2020")
+
+# make a table
+df_pe %>%
+  filter(age!="100+") %>% 
+  kable() %>%
+  kable_paper("hover", full_width = F)
+
+```
+
+### Q3.B
+
+**estimates of the number of deaths in each of these age groups during the period 2015-2020.**
+
+Deaths can be estimated by:
+
+$$
+_{n}d_{x} = l_{x} - l_{x+n}
+$$
+
+```{r}
+
+# create deaths by measuring lx - lx+n
+df_pe <- df_pe %>% 
+  mutate(deaths = `2015` - lead(`2020`))
+
+# make a table
+df_pe %>%
+  filter(age!="100+") %>% 
+  rename(`deaths (thousands)` = deaths) %>%
+  kable() %>%
+  kable_paper("hover", full_width = F)
+
+```
+
+## QUESTION 4
+
+
+
+### Q4.A
+
+**Use these estimates to:**
+**estimate $_5M_x$ for ages x = 70; 75; 80; 85; 90; 95 for males in Peru for the period 2015-2020**
+
+The age-specific mortality rate is:
+
+$$
+_{n}M_{x} = \frac{_{n}d_{x}}{_{n}L_{x}}
+$$
+
+
+
+```{r}
+
+df_pe <- df_pe %>%
+  mutate(nLx = (5*(`2015`+`2020`)/2),
+         nMx = deaths/nLx)
+
+
+df_pe %>%
+  filter(age!="100+") %>% 
+  kable() %>%
+  kable_paper("hover", full_width = F)
+
+```
+
+### Q4.B
+
+**estimate 5qx for ages x = 70; 75; 80; 85; 90; 95 for males in Peru for the period 2015-2020, using each of the two approximations discussed in class.**
+
+
+
+Solution 1:
+
+$$
+_nq_x \approx 1-exp(-n_nM_x)
+$$
+```{r}
+
+# estimate first method of approximation for nqx
+df_pe <- df_pe %>%
+  mutate(nqx_1 = 1-exp(-5*nMx))
+
+
+```
+
+
+
+Solution 2:
+
+$$
+_nq_x \approx \frac{n_nM_x}{1+n {_nM_x}/2}
+$$
+
+
+```{r}
+
+# estimate second method of approximation for nqx
+df_pe <- df_pe %>%
+  mutate(nqx_2 = (5*nMx)/(1+5*nMx/2))
+
+df_pe %>%
+  filter(age!="100+") %>%
+  select(age, `2015`, `2020`, deaths, nMx, nqx_1, nqx_2) %>%
+  kable() %>%
+  kable_paper("hover", full_width = F)
+```
+
+
+
+
+
+### Q4.C
+
+**estimate $_5m_x$ for the same ages**
+
+The age-specific mortality rate is:
+
+$$
+_{n}m_{x} = \frac{_{n}d_{x}}{_{n}L_{x}} = \frac{_{n}d_{x}}{nl_{x} - \frac{1}{2}n_nd_x}
+$$
+
+
+
+```{r}
+
+df_pe <- df_pe %>%
+  mutate(nLx_approx = (5*`2015`-(1/2)*5*deaths),
+         nmx = deaths/nLx_approx)
+
+
+df_pe %>%
+  filter(age!="100+") %>% 
+  select(age, `2015`, `2020`, deaths, nLx_approx, nmx) %>%
+  kable() %>%
+  kable_paper("hover", full_width = F)
+
+```
+
+### Q4.D
+
+**Compare the estimates from the two approximations. Which of the two approximations do you think is better? Why?**
+
+```{r}
+
+df_pe %>%
+  filter(age!="100+") %>% 
+  select(age, `2015`, `2020`, deaths, nMx, nqx_1, nqx_2) %>%
+  kable() %>%
+  kable_paper("hover", full_width = F)
+
+```
+
+The table above shows the two approximations for $_nq_x$, the probability of dying in an age group of those aged x to x+n. The estimates are very close, though as $_nM_x$ gets larger, there is a larger discrepancy between the approximations. 
+
+I believe the first approximation ($_nq_x \approx 1-exp(-n_nM_x)$) is better because the equation is based on the assumption that the mortality rate is constant over time within the age interval. I believe this is intuitive and *mostly* true for these age groups, except not for the oldest age groups.
+
+*from graded notes* second approx is closer to wpp reports.     
+
+### Q4.E
+
+**Compare the estimates of $_5M_x$ and $_5m_x$  with one other, and comment on any dfferences.**
+
+```{r}
+df_pe %>%
+  filter(age!="100+") %>% 
+  select(age, `2015`, `2020`, deaths, nLx, nLx_approx, nMx, nmx) %>%
+  kable() %>%
+  kable_paper("hover", full_width = F)
+```
+
+
+For each age group $_nM_x$ is smaller than $_nm_x$. $_nM_x$ uses the person years calculated in $_nL_x$ column, while the $_nm_x$ utilizes the `nLx_approx` column (which assumes linear function of person years over the interval). $_nM_x$ may be underestimating mortality by using person-years estimates from population counts, while $_nm_x$ actually accounts for deaths in the cohort when estimating person-years. As can be seen, $_nL_x$ estimates more person-years lived than `nLx_approx`. Older folks who die in these age groups may not live half of the interval as is assumed, so $_nm_x$ may be more of an accurate estimate of the mortality rate.
+
+## QUESTION 5
+
+**For each of the two approximations:**
+
+### Q5.A
+
+**Derive a life table ($l_x$ only) for a cohort of 10,000 males aged 70.**
+
+To construct a cohort life table *ONLY* using nqx values we'll rely on the following equations:
+
+
+**note from graded version** 
+5dx = 5qx*lx
+
+life expectance e70 = $\sum^95_{i=70} * 5Li$ over l70
+Deaths
+$$
+_nd_x = _nq_x*_nlx
+$$
+
+Probability of surviving
+$$
+_np_x = 1-_nq_x
+$$
+
+Person-years
+$$
+_nLx = \frac{_{n}d_{x}}{nl_{x} - \frac{1}{2}n_nd_x}
+$$
+
+Person-years lived above age x
+$$
+_nT_x = \sum_{a=x}^{inf}{_nL_a}
+$$
+
+Life expectancy
+$$
+e^0_x = \frac{T_x}{l_x}
+$$
+
+
+
+
+```{r life_table_approx_1}
+
+lt_1 <- df_pe %>%
+  select(age, nqx_1) %>%
+  mutate(
+    n = 5,
+    npx = 1-nqx_1,
+    nqx = case_when(
+      age=="100+" ~ 1,
+      TRUE ~ nqx_1    )) %>%
+  select(-nqx_1)
+
+
+# rest of ages
+x <- seq(70,100,5)
+radix <- 10000
+lx <- radix
+npx <- lt_1$npx
+
+#fill out rest of table
+for (a in x[-length(x)]) {
+  l <- lx[which(x == a)] * npx[which(x == a)]
+  lx <- c(lx, l)
+}
+lt_1 <- lt_1 %>%
+  mutate(
+    x = x,
+    lx = lx,
+    ndx = lx*nqx,
+    Lx = n*lx - n*ndx/2,
+    Tx = rev(Lx) %>% coalesce(0) %>% cumsum() %>% rev(),
+    ex = Tx / lx
+  )
+
+```
+
+
+
+```{r life_table_approx_2}
+
+lt_2 <- df_pe %>%
+  select(age, nqx_2) %>%
+  mutate(
+    n = 5,
+    npx = 1-nqx_2,
+    nqx = case_when(
+      age=="100+" ~ 1,
+      TRUE ~ nqx_2    )) %>%
+  select(-nqx_2)
+
+
+# rest of ages
+x <- seq(70,100,5)
+radix <- 10000
+lx <- radix
+npx <- lt_2$npx
+
+#fill out rest of table
+for (a in x[-length(x)]) {
+  l <- lx[which(x == a)] * npx[which(x == a)]
+  lx <- c(lx, l)
+}
+lt_2 <- lt_2 %>%
+  mutate(
+    x = x,
+    lx = lx,
+    ndx = lx*nqx,
+    Lx = n*lx - n*ndx/2,
+    Tx = rev(Lx) %>% coalesce(0) %>% cumsum() %>% rev(),
+    ex = Tx / lx
+  )
+
+
+```
+
+
+Below are two life tables, each life table uses a different approximation technique for nqx.
+
+```{r}
+
+lt_1 %>% select(-x,-n) %>%
+  kable %>%
+  kable_paper("hover", full_width = F)
+
+lt_2 %>% select(-x,-n) %>%
+  kable %>%
+  kable_paper("hover", full_width = F)
+
+```
+
+### Q5.B
+
+**Estimate the life expectancy at age 70 from each of the two approximations, and compare the two estimates. Comment on any differences, and why they arise.**
+
+```{r}
+
+
+cbind(age = lt_1$x, nqx_1=lt_1$nqx, nqx_2=lt_2$nqx, ex_1= lt_1$ex, ex_2=lt_2$ex) %>%
+  kable(., digits=2)  %>%
+  kable_paper("hover", full_width = F)
+
+
+```
+
+Above, you can compare the life expectancies that use different $_nq_x$ approximations. 
+
+The first approximation technique estimates slightly higher life expectancies. These are very slight and most life expectancies are within a few decimal points. The first approximation technique estimates slightly lower probabilities of dying which is why the life expectancies are slightly longer for this approach.
+
+
+
+
+
+
+# Appendix
+
+```{r getlabels, include=FALSE}
+labs <- knitr::all_labels()
+labs <- labs[!labs %in% c("setup", "toc", "getlabels", "allcode")]
+```
+
+```{r allcode, ref.label=labs, eval=FALSE, echo=TRUE}
+```
+
+
