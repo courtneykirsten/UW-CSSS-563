@@ -1,0 +1,123 @@
+---
+title: "CSSS 563 - HW2"
+author: "Courtney Allen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(SciViews)
+library(kableExtra)
+```
+
+# Question 1
+
+**Consider a one-sex closed population with 3 age groups. Their initial population at time t = 0, age-specic fertility rates (in expected births per individual in the next period) and survival probabilities are as follows:**
+
+**Age is defined as age last birthdays in time periods.**
+
+**Assuming that fertility and mortality rates for the population stay constant over time:**
+
+## Q1.a
+
+**Find the crude birth rate for this population for the first time period, from time t = 0 to t = 1.**
+
+## Q1.b
+
+**Find the total fertility rate for this population.**
+
+## Q1.c 
+
+**Write down the Leslie matrix for this population.**
+
+## Q1.d
+
+**Project the population by age forwards one period.**
+
+## Q1.e
+
+**(e) Project the population by age forwards two periods.**
+
+## Q1.f
+
+**(f) Find the crude birth rate and TFR for this population for the second time period, from time t = 1 to t = 2.**
+
+## Q1.g
+
+**Find the asymptotic rate of increase of the population**
+
+## Q1.h
+
+**(h) Find the stable age distribution of the population.**
+
+## Q1.i
+
+**Find the reproductive value of individuals in each age group.**
+
+# Question 2
+
+**This question deals with population projections for Peru, assuming that there is no international migration.**
+
+## Q2.a
+
+**From the UN's 2019 World Population Prospects, extract the estimates of the age-specic mortality rates nmx for females in Peru in 2015-2020.**
+
+## Q2.b
+
+**For each age group, calculate 5 ~ Fx, the expected number of live female births per woman per ve-year period for Peru in 2015-2020.**
+
+## Q2.c
+
+**Using these numbers, form and write out the Leslie matrix for this population. You can write out the full matrix or just report the non-zero elements, for example in the form (row number, column number, entry).**
+
+## Q2.d 
+
+**Assuming that fertility and mortality rates stay constant over time into the future, and that net migration is zero at all ages, project the population of Peru forward one period from 2020, to 2025.**
+
+## Q2.e
+**Under the same assumptions, project the population forward 10 years, to 2030**
+
+
+# Question 3
+
+**This question deals with population projections for Peru, taking account of international migration.**
+
+## Q3.a
+
+**Extract and write down the age-specific net migration rates in migrants per five year period for 2015-2020 from the UN's 2019 World Population Prospects. (Note that the UN gives net migration rates in terms of migrants per 1,000 person-years, so you will need to adjust their rates.)**
+
+## Q3.b
+
+**Assuming that age-specific net migration rates will stay constant to 2030, project the population of Peru forward from 2020 to 2025 and to 2030.**
+
+## Q3.c 
+
+**Compare your population projections for 2025 and 2030 with migration to those without migration.**
+
+
+# Question 4
+
+## Q4.a
+
+**This question is about the female mortality rates in Peru extracted in Question 2. **
+
+**Using only the rates for ages 50 and above, estimate the parameters of a Gompertz model and a Gompertz-Makeham model for the mortality rates. **
+
+## Q4.b
+
+**Plot the tted rates against the observed rates and comment on how good the model ts are. Is there evidence that the additional constant in the Gompertz- Makeham model is needed?**
+
+## Q4.c
+
+**Fit a Heligman-Pollard model to the full set of age-specic mortality rates. Plot the fitted rates against the observed rates and comment on how good the fit is.**
+
+## Q4.d
+
+**Select the Coale-Demeny West model life table that best corresponds to these data, using the demogR R package or any other method. Fit a Brass relational model to the data, and fit the observed against the fitted values. Comment on how good the fit is. **
+
+## Q4.e
+
+**Compare the fits of the four models considered to these data. Which one fits the data best? Give reasons for your answer.**
