@@ -11,11 +11,100 @@ library(dplyr)
 library(ggplot2)
 library(SciViews)
 library(kableExtra)
+library(popReconstruct)
+library(demogR)
+library(popbio)
+library(wpp2019)
+library(data.table)
+library(expm)
+library(bayesPop)
+library(pracma)
+library(boot)
+
 ```
 
-# Question 1
+# Question 1.
 
-**Consider a one-sex closed population with 3 age groups. Their initial population at time t = 0, age-specic fertility rates (in expected births per individual in the next period) and survival probabilities are as follows:**
+```{r echo=FALSE, message=F}
+
+# create data frame with one-sex closed population w/ 3 age groups
+age <- c(0,1,2)
+popn_t0 <- c(18000,17000,14000)
+N0 <- matrix(c(18000,17000,14000), ncol = 1)
+fertility_rate <- c(0,0.9,0.2)
+survival_prob <- c(0.65, 0.75, 0.15)
+
+# data frame for Q1 at T=0
+df_q1 <- as.data.frame(cbind(age, popn_t0, fertility_rate, survival_prob))
+
+
+df_q1 <- df_q1 %>%
+  mutate(
+    survivors_t1 = popn_t0*survival_prob,# survivors at T=1
+    births_t1 = popn_t0*fertility_rate, # births at T=1
+    popn_t1 = case_when(
+      age==0 ~ births_t1,
+      age==1 ~ lag(survivors_t1),
+      age==2 ~ lag(survivors_t1) + survivors_t1),
+    pys_t01 = (popn_t0+popn_t1)/2,
+        survivors_t2 = popn_t1*survival_prob,# survivors at T=2
+    births_t2 = popn_t0*fertility_rate, # births at T=2
+    popn_t2 = case_when(
+      age==0 ~ births_t2,
+      age==1 ~ lag(survivors_t2),
+      age==2 ~ lag(survivors_t2) + survivors_t2),
+    pys_t12 = (popn_t1+popn_t2)/2 # person years between T=1, T=2
+    )
+
+
+# q1.a -  find CBR for T0,T1
+cbr_t01 <- round(sum(df_q1$births_t1)/sum(df_q1$pys_t01),3)
+         
+# q1.b -  find TFR
+tfr_t01 <- sum(df_q1$fertility_rate)
+
+
+# q1.c -  make leslie matrix
+Les <- matrix(0, 3, 3)
+Les[1,] <- df_q1$fertility_rate
+Les[2,1] <- df_q1$survival_prob[1]
+Les[3,c(2,3)] <- df_q1$survival_prob[2]
+
+colnames(Les) <- 1:3
+
+
+# q1.d -  project leslie matrix population by one period
+proj_T1 <- Les %*% N0
+rownames(proj_T1) <- c(0,1,"2+")
+
+# q1.e - project leslie matrix population by two periods
+proj_T2 <- Les %*% proj_T1
+rownames(proj_T2) <- c(0,1,"2+")
+
+# q1.f -  find CBR for period 1-2
+cbr_t12 <- round(sum(df_q1$births_t2)/sum(df_q1$pys_t12),3)
+         
+# q1.f -  find TFR for period 1-2
+tfr_t12 <- sum(df_q1$fertility_rate)
+
+
+# q1.g -  find asymptote of stable population 
+stable_lambda <- eigen(Les)$values[1]
+
+# q1.h - find stable age distribution - noted as 'u'
+stable_u <- eigen(Les)$vectors[,1]
+stable_u <- stable_u/sum(stable_u)
+
+# q1.i - reproductive value of individuals in each age group, noted as 'v'
+repro_v <- eigen(t(Les))$vectors[,1]
+repro_v / repro_v[1]
+
+
+
+
+```
+
+**Consider a one-sex closed population with 3 age groups. Their initial population at time t = 0, age-specific fertility rates (in expected births per individual in the next period) and survival probabilities are as follows:**
 
 **Age is defined as age last birthdays in time periods.**
 
@@ -25,80 +114,434 @@ library(kableExtra)
 
 **Find the crude birth rate for this population for the first time period, from time t = 0 to t = 1.**
 
+To find crude birth rate, we use:
+
+$$
+CBR = \frac{\text{number of births}}
+{\text{number of person-years in years }[T_0,T_1]}
+$$
+Accounting for mortality and using the number of person-years between T=0 and T=1, the crude birth rate for [$T_0,T_1$] is **`r cbr_t01`**.
+
+
+
 ## Q1.b
 
 **Find the total fertility rate for this population.**
+
+$$
+TFR = n \times \sum_{\text{age groups}[x,x+n]}{}_nF_x[T_1,T_2]
+$$
+
+For this question, we can just add up the age-specific fertility rates given in the original table and the TFR is **`r tfr_t01`**.
 
 ## Q1.c 
 
 **Write down the Leslie matrix for this population.**
 
+
+```{r, echo=F}
+kable(Les, "markdown")
+```
+
 ## Q1.d
 
 **Project the population by age forwards one period.**
 
+```{r, echo=F}
+kable(proj_T1, "markdown")
+```
+
 ## Q1.e
 
-**(e) Project the population by age forwards two periods.**
+**Project the population by age forwards two periods.**
+
+```{r, echo=F}
+kable(proj_T2, "markdown")
+```
 
 ## Q1.f
 
-**(f) Find the crude birth rate and TFR for this population for the second time period, from time t = 1 to t = 2.**
+**Find the crude birth rate and TFR for this population for the second time period, from time t = 1 to t = 2.**
+
+The CBR is now **`r cbr_t12`** and the TFR is still **`r tfr_t12`**.
+
 
 ## Q1.g
 
 **Find the asymptotic rate of increase of the population**
 
+The rate of increase is the log of the dominant right eigenvalue of our Leslie matrix, so the rate of increase is **`r round(log(stable_lambda),5)`**.
+
 ## Q1.h
 
-**(h) Find the stable age distribution of the population.**
+**Find the stable age distribution of the population.**
+
+The stable age distribution is: **`r stable_u`**.
 
 ## Q1.i
 
 **Find the reproductive value of individuals in each age group.**
 
+The reproductive value, or the expected number of future offspring for individuals in each age group are: **`r repro_v`**.
+
 # Question 2
 
 **This question deals with population projections for Peru, assuming that there is no international migration.**
 
+
+```{r, message=F, echo=F}
+
+# q1.a - extract data for Peru
+data("mxF")
+df_q2 <- data.table(mxF) %>%
+  filter(country_code == 604) %>%
+  select("age", "2015-2020") 
+
+data("percentASFR")
+df_q2_asfr <- percentASFR %>%
+  filter(country_code == 604) %>%
+  select("2015-2020") 
+
+data("tfr")
+df_q2_tfr <- tfr %>%
+  filter(country_code == 604) %>%
+  select("2010-2015")
+
+data("popF")
+df_q2_pop <- popF %>%
+  filter(country_code == 604) %>%
+  select("2015") %>%
+  mutate(`2015` = `2015`*1000)
+
+
+  
+# combine age groups 0-1, 1-4
+df_q2 <- df_q2 %>% 
+  mutate(asmr = case_when(
+    age==0 ~  (`2015-2020` + 4*lead(`2015-2020`))/5,
+    TRUE ~ `2015-2020`))
+df_q2 <- df_q2 %>% filter(age!=1) %>% select(-`2015-2020`)
+
+# create ASFR from percent TFR
+ASFR_pre <- c(0,0,0)
+ASFR_mid <- df_q2_asfr*df_q2_tfr[1,1]/5/100
+ASFR_mid <- ASFR_mid$`2015-2020` 
+ASFR_post <- c(0,0,0,0,0,0,0,0,0,0,0)
+ASFR <- c(ASFR_pre, ASFR_mid, ASFR_post)
+df_q2 <- cbind(df_q2, asfr=ASFR, df_q2_pop) 
+
+
+
+# q2.b - calculate f tilde
+df_q2 <- df_q2 %>%
+  mutate(nqx = (5*asmr)/(1+5*asmr/2),
+         nsx = 1-nqx,
+         f_births = 1/(1+1.05),
+         f_tilde = case_when(
+           age==0 ~ 0,
+           TRUE ~ asfr*f_births*0.5*(1+nsx*((lag(`2015`)/`2015`)))*(1-nqx[age==0]/2)),
+         f_tilde = round(f_tilde,4),
+         dist_2015 = (`2015`/sum(`2015`))
+         )
+
+
+# q2.c - leslie matrix
+les2 <- matrix(0,21,21)
+les2[1,] <- c(df_q2$f_tilde)
+les2[2,1] <- df_q2$nsx[1]
+les2[3,2] <- df_q2$nsx[2]
+les2[4,3] <- df_q2$nsx[3]
+les2[5,4] <- df_q2$nsx[4]
+les2[6,5] <- df_q2$nsx[5]
+les2[7,6] <- df_q2$nsx[6]
+les2[8,7] <- df_q2$nsx[7]
+les2[9,8] <- df_q2$nsx[8]
+les2[10,9] <- df_q2$nsx[10]
+les2[11,10] <- df_q2$nsx[11]
+les2[12,11] <- df_q2$nsx[12]
+les2[13,12] <- df_q2$nsx[13]
+les2[14,13] <- df_q2$nsx[14]
+les2[15,14] <- df_q2$nsx[15]
+les2[16,15] <- df_q2$nsx[16]
+les2[17,16] <- df_q2$nsx[17]
+les2[18,17] <- df_q2$nsx[18]
+les2[19,18] <- df_q2$nsx[19]
+les2[20,19] <- df_q2$nsx[20]
+les2[21,20] <- df_q2$nsx[21]
+
+colnames(les2) <- seq(0,100,5)
+rownames(les2) <- seq(0,100,5)
+
+# q2.d - project forward one time period
+q2_N0 <- matrix(df_q2$`2015`, ncol = 1)
+
+proj_q2 <- les2 %*% q2_N0
+rownames(proj_q2) <- seq(0,100,5)
+colnames(proj_q2) <- "2025_no_mig"
+
+# q2.e - project forward 30 years (30/5=6)
+
+proj_q2_30 <- les2%^%6 %*% q2_N0
+rownames(proj_q2_30) <- seq(0,100,5)
+colnames(proj_q2_30) <- "2030_no_mig"
+
+```
+
+
 ## Q2.a
 
-**From the UN's 2019 World Population Prospects, extract the estimates of the age-specic mortality rates nmx for females in Peru in 2015-2020.**
+**From the UN's 2019 World Population Prospects, extract the estimates of the age-specific mortality rates** $_nm_x$ **for females in Peru in 2015-2020.**
+
+See code in appendix.
 
 ## Q2.b
 
-**For each age group, calculate 5 ~ Fx, the expected number of live female births per woman per ve-year period for Peru in 2015-2020.**
+**For each age group, calculate** $_5\tilde{F}_x$, **the expected number of live female births per woman per five-year period for Peru in 2015-2020.**
+
+To project the number of female births, $\tilde{F}_x$, I use the equation:
+
+$$
+\tilde{F}_x = F_x \times \frac{1}{1+SRB} \times \frac{1}{2}(1+s_{x-1} \frac{N_{x-1,t}}{N_{x,t}}) \times(1-\frac{q_0}{2})
+$$
+
+```{r, echo=F}
+df_q2  %>%
+  select(age, f_tilde) %>% 
+  kable() %>%
+  kable_paper("hover", full_width = F)
+
+```
 
 ## Q2.c
 
 **Using these numbers, form and write out the Leslie matrix for this population. You can write out the full matrix or just report the non-zero elements, for example in the form (row number, column number, entry).**
 
+```{r echo=F}
+les2  %>%
+  kable(., digits=4) %>%
+  kable_paper("hover", full_width = F)
+```
+
+
 ## Q2.d 
 
 **Assuming that fertility and mortality rates stay constant over time into the future, and that net migration is zero at all ages, project the population of Peru forward one period from 2020, to 2025.**
+
+Assuming no migration and accounting for mortality, the population projection 5 years into the future is shown in the table below.  
+
+```{r echo=F}
+proj_q2  %>%
+  kable(., digits=0) %>%
+  kable_paper("hover", full_width = F)
+```
+
 
 ## Q2.e
 **Under the same assumptions, project the population forward 10 years, to 2030**
 
 
+```{r echo=F}
+
+proj_q2_30 %>%
+  kable(., digits=0) %>%
+  kable_paper("hover", full_width = F)
+
+```
+
 # Question 3
 
 **This question deals with population projections for Peru, taking account of international migration.**
+
+```{r, message=F, echo=F}
+
+# q3.a - extract data for Peru
+data("migration")
+df_q3 <- migration %>%
+  filter(country_code == 604) %>%
+  select("2015-2020")
+
+peru_netmig <- df_q3[1,1]/1000
+
+# q3.b - project popn 2025 and 2030
+
+df_q3 <- df_q2 %>%
+  mutate(migrants = peru_netmig*`2015`)
+
+migrants <- df_q3$migrants
+
+proj_q3_2025 <- les2 %*% q2_N0 + migrants
+rownames(proj_q3_2025) <- seq(0,100,5)
+colnames(proj_q3_2025) <- ("2025_with_mig")
+
+proj_q3_2030 <- les2%^%2 %*% q2_N0 + migrants
+rownames(proj_q3_2030) <- seq(0,100,5)
+colnames(proj_q3_2030) <-  ("2030_with_mig")
+
+proj_q3 <- cbind(`2025`=proj_q3_2025, `2030`=proj_q3_2030 )
+
+proj_compare <- cbind(proj_q2, 
+                      proj_q2_30,
+                      proj_q3_2025,
+                      proj_q3_2030)
+
+# q4.b
+
+
+
+```
+
+
 
 ## Q3.a
 
 **Extract and write down the age-specific net migration rates in migrants per five year period for 2015-2020 from the UN's 2019 World Population Prospects. (Note that the UN gives net migration rates in terms of migrants per 1,000 person-years, so you will need to adjust their rates.)**
 
+The net migration rate is **`r round(peru_netmig,3)`** migrants per person in the next 5-year period.
+
 ## Q3.b
 
 **Assuming that age-specific net migration rates will stay constant to 2030, project the population of Peru forward from 2020 to 2025 and to 2030.**
+
+To account for migration, I will assume all migration happens at the end of the period. I will also assume the migrant population mirrors the same age distribution as the population.
+
+$$
+N_{t+1} = LN_t + G^f_t
+$$
+
+```{r echo=F}
+proj_q3  %>%
+  kable(., digits=0) %>%
+  kable_paper("hover", full_width = F)
+```
+
+
+
 
 ## Q3.c 
 
 **Compare your population projections for 2025 and 2030 with migration to those without migration.**
 
+The table below show that assuming migration is constant and occurs at the end of the period decreases the size of the population because the net migration is negative.
+
+```{r echo=F}
+proj_compare  %>%
+  kable(., digits=0) %>%
+  kable_paper("hover", full_width = F)
+```
+
+
 
 # Question 4
+
+**Apologies, I tried to suppress output**
+
+```{r echo=F, message=F}
+
+# q4.a - Gompertz model and Makeham model
+
+gmp <- lm(log(asmr) ~ age, data=subset(df_q2, age >= 50))
+#summary(gmp)
+
+gmp_predict <- function(p, age){
+    alp <- exp(p[1])
+    bet <- p[2]
+    if (length(p) == 2){
+        yhat <-alp * exp(bet * age)
+    }
+    else{
+        gam <- p[3]
+        yhat <- alp * exp(bet * age) + gam
+    }
+    return(yhat)
+}
+
+gmpfunc <- function(p, data=subset(df_q2, age >= 50)){
+    yhat <- gmp_predict(p, data$age)
+    return(mean((log(data$asmr) - log(yhat))**2)**.5)
+}
+
+gmpp <- optim(c(0,0), gmpfunc)
+c(gmpp$par[1], gmpp$par[2])
+# gmp$coefficients
+gmp_predict(gmpp$par, subset(df_q2, age >= 50)$age)
+exp(predict(gmp))
+subset(df_q2, age >= 50)$asmr
+
+gmpm <- optim(c(gmpp$par, 0), gmpfunc)
+#gmpm
+gmp_predict(gmpm$par, subset(df_q2, age >= 50)$age)
+
+
+# q4b - plot
+
+# code from nmmarquez repository
+df_q2[,qx:=1 - (1-asmr)**5]
+df_q2[age == 0, qx:=1 - (1-asmr)**1]
+df_q2[age == 1, qx:=1 - (1-asmr)**4]
+df_q2$type <- "data"
+DF2 <- copy(df_q2)
+DF2$type <- "Gompertz"
+DF2[,asmr:= gmp_predict(gmpp$par, age)]
+DF2[,qx:=1 - (1-asmr)**5]
+DF2[age == 0, qx:=1 - (1-asmr)**1]
+DF2[age == 1, qx:=1 - (1-asmr)**4]
+DF3 <- copy(df_q2)
+DF3$type <- "Gompertz-Makeham"
+DF3[,asmr:= gmp_predict(gmpm$par, age)]
+DF3[,qx:=1 - (1-asmr)**5]
+DF3[age == 0, qx:=1 - (1-asmr)**1]
+DF3[age == 1, qx:=1 - (1-asmr)**4]
+
+DFall <- rbindlist(list(df_q2, DF2, DF3))
+
+
+# q4c - heligman polard model - code help from nmmarques repository
+
+hppred <- function(p, age){
+    p[1]**((age + p[2])**-p[3]) +
+        p[4] * exp(-p[5]*(log(age) - log(p[6]))**2) +
+        p[7] * p[8]**age
+}
+
+
+hpfunc <- function(p, data=df_q2){
+    yhat <- hppred(p, data$age)
+    return(mean((logit(data$qx) - yhat)**2)**.5)
+}
+
+#plot(logit(df_q2$qx))
+
+hpls <- optim(c(0.033, 0.932, 0.204, 0.105, 3.821, 41.458, 0.001, 1.08), hpfunc)
+#hpls
+
+DF4 <- copy(df_q2)
+DF4$type <- "HP"
+DF4[,qx:= inv.logit(hppred(hpls$par, age))]
+DFHP <- rbindlist(list(df_q2))
+
+# q4.d - coale-demeny
+
+N <- nrow(df_q2) - 2
+rmse <- apply(cdmltw(sex = "F")$nmx, 1, function(x) 
+    mean((x[1:N] - df_q2$asmr[1:N])**2)**.5)
+
+mlt <- which(rmse == min(rmse))
+
+mltqx <- logit(cdmltw(sex = "F")$nqx[mlt,1:N])
+ltqx <- logit(df_q2$qx[1:N])
+
+mltlm <- lm(ltqx ~ mltqx)
+#summary(mltlm)
+
+DF5 <- copy(df_q2)
+DF5$type <- "Coale-Demeny LT"
+DF5[1:N, qx:= inv.logit(predict(mltlm))]
+DF5[(N+1):nrow(DF5), qx:=NA]
+DFHP <- rbindlist(list(df_q2, DF4, DF5))
+
+
+
+```
 
 ## Q4.a
 
@@ -106,18 +549,82 @@ library(kableExtra)
 
 **Using only the rates for ages 50 and above, estimate the parameters of a Gompertz model and a Gompertz-Makeham model for the mortality rates. **
 
+The Gompertz model is $h_{x} = \alpha exp(\beta x)$.
+
+```{r echo=F, message=F}
+gmpp$value
+```
+
+The Gompertz-Makeham model adds a constant $\gamma$ to the right hand side.
+
+```{r echo=F, message=F}
+gmpm$value
+```
+
 ## Q4.b
 
-**Plot the tted rates against the observed rates and comment on how good the model ts are. Is there evidence that the additional constant in the Gompertz- Makeham model is needed?**
+**Plot the fitted rates against the observed rates and comment on how good the model fits are. Is there evidence that the additional constant in the Gompertz-Makeham model is needed?**
+
+The two approaches have very similar results and there is no evidence that the additional constant is needed.
+
+```{r echo=F, message=F}
+ggplot(data=DFall, aes(age, log(asmr), color=type)) + geom_point() + 
+    labs(title="Gompertz Compare")
+
+```
+
+
 
 ## Q4.c
 
-**Fit a Heligman-Pollard model to the full set of age-specic mortality rates. Plot the fitted rates against the observed rates and comment on how good the fit is.**
+**Fit a Heligman-Pollard model to the full set of age-specific mortality rates. Plot the fitted rates against the observed rates and comment on how good the fit is.**
+
+This model does not converge - perhaps due to too few data points.
+
+```{r echo=F, message=F}
+ggplot(DFHP, aes(age, qx, color=type)) + geom_point()
+
+ggplot(DFHP, aes(age, logit(qx), color=type)) + geom_point() + 
+    labs(title="HP Fit")
+
+```
 
 ## Q4.d
 
 **Select the Coale-Demeny West model life table that best corresponds to these data, using the demogR R package or any other method. Fit a Brass relational model to the data, and fit the observed against the fitted values. Comment on how good the fit is. **
 
+
+The Coale-Demeny approach shows the best fit of all the mdoels.
+
+```{r echo=F, message=F}
+
+ggplot(DFHP, aes(age, qx, color=type)) + geom_point()
+
+ggplot(subset(DFHP, type != "HP"), aes(age, logit(qx), color=type)) + 
+    geom_point() + labs(title="Model Table Fit")
+
+DFtotal <- rbindlist(list(df_q2, DF3, DF4, DF5))
+ggplot(DFtotal, aes(age, qx, color=type)) + geom_point()
+
+ggplot(DFtotal, aes(age, logit(qx), color=type)) + geom_point() + 
+    labs(title="Model Compare")
+
+```
+
 ## Q4.e
 
 **Compare the fits of the four models considered to these data. Which one fits the data best? Give reasons for your answer.**
+
+The Coale-Demeny model life table fitted with the Brass relational model appears to fit the data best, especially compared to the Heligman-Pollard model which did not fit the data at all.
+
+
+
+# Appendix
+
+```{r getlabels, include=FALSE}
+labs <- knitr::all_labels()
+labs <- labs[!labs %in% c("setup", "toc", "getlabels", "allcode")]
+```
+
+```{r allcode, ref.label=labs, eval=FALSE, echo=TRUE}
+```
